@@ -32,7 +32,7 @@ class CryptoCipher(object):
         return s[:-ord(s[len(s)-1:])]
 
 
-    def encrypt_file(self, file_name, out_filename=None, chunksize=64*1024):
+    def encrypt_file(self, file_name):
         with open(file_name, 'rb') as fo:
             plainText = fo.read()
 
@@ -46,7 +46,7 @@ class CryptoCipher(object):
             fo.write(enc)
 
 
-    def decrypt_file(self, file_name, out_filename=None, chunksize=24*1024):
+    def decrypt_file(self, file_name):
         with open(file_name, 'rb') as fo:
             cipherText = fo.read()
 
