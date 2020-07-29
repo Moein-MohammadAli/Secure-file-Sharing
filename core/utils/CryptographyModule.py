@@ -71,20 +71,3 @@ class CryptoCipher(object):
     def public_key_encryption(self, public_key, plain_text):
         return str(pow(plain_text, public_key, self.p))
 
-
-
-# some example to show how to use this module
-if __name__=="__main__":
-    ## Using to encrypt/decrypt a 'string' message with given key
-    # a = CryptoCipher("7A24432646294A404E635266556A576E5A7234753778214125442A472D4B6150")
-    # e = a.encrypt_text("hi")
-    # print(e)
-    # print(a.decrypt_text(e))
-
-    ### Using to encrypt/decrypt any file with specified key
-
-    # a.encrypt_file("./scr.png")
-    # a.decrypt_file("scr.png.enc")
-
-    # a.encrypt_file("data.txt")
-    # a.decrypt_file("data.txt.enc")
