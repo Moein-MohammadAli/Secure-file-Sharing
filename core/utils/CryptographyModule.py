@@ -1,4 +1,4 @@
-import os
+import os, sys
 import random
 import base64
 import hashlib
@@ -6,11 +6,17 @@ from Crypto import Random
 from Crypto.Cipher import AES
 import struct
 
+sys.path.append('../../backend')
+from settings import P, G, PUBLIC_KEY, PRIVATE_KEY
+
 class CryptoCipher(object):
 
     def __init__(self, key): 
         self.blockSize = AES.block_size
-        self.key = hashlib.sha256(key.encode()).digest()
+        self.p = int(P, 16)
+        self.g = G
+        temp_key = self.private_key_decryption(PRIVATE_KEY, key)
+        self.key = hashlib.sha256(temp_key.encode()).digest()
 
     def encrypt_text(self, plainText):
         plainText = self.pad(plainText)
@@ -59,19 +65,26 @@ class CryptoCipher(object):
         with open("decrypted_"+file_name[:-4], 'wb') as fo:
             fo.write(dec)
 
+    def private_key_decryption(self, private_key, encrypted):
+        return str(pow(int(encrypted, 16), int(private_key, 16), self.p))
+
+    def public_key_encryption(self, public_key, plain_text):
+        return str(pow(plain_text, public_key, self.p))
+
+
 
 # some example to show how to use this module
+if __name__=="__main__":
+    ## Using to encrypt/decrypt a 'string' message with given key
+    # a = CryptoCipher("7A24432646294A404E635266556A576E5A7234753778214125442A472D4B6150")
+    # e = a.encrypt_text("hi")
+    # print(e)
+    # print(a.decrypt_text(e))
 
-## Using to encrypt/decrypt a 'string' message with given key
-# a = CryptoCipher("7A24432646294A404E635266556A576E5A7234753778214125442A472D4B6150")
-# e = a.encrypt_text("hi")
-# print(e)
-# print(a.decrypt_text(e))
+    ### Using to encrypt/decrypt any file with specified key
 
-### Usint to encrypt/decrypt any file with specified key
+    # a.encrypt_file("./scr.png")
+    # a.decrypt_file("scr.png.enc")
 
-# a.encrypt_file("./op.svg")
-# a.decrypt_file("op.svg.enc")
-
-# a.encrypt_file("data.txt")
-# a.decrypt_file("data.txt.enc")
+    # a.encrypt_file("data.txt")
+    # a.decrypt_file("data.txt.enc")

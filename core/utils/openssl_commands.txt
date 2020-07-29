@@ -1,0 +1,2 @@
+openssl genpkey -paramfile dhp.pem -out dhkey1.pem
+openssl pkey -in dhkey1.pem -text -noout | tr d ':'
