@@ -5,4 +5,5 @@
 ErgoApi/production.py
 .DS_Store
 .venv/*
+.env/*
 static/*

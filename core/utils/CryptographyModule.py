@@ -4,10 +4,11 @@ import base64
 import hashlib
 from Crypto import Random
 from Crypto.Cipher import AES
+from rest_framework.exceptions import ValidationError
 import struct
+import json
 
-sys.path.append('../../backend')
-from settings import P, G, PUBLIC_KEY, PRIVATE_KEY
+from backend.settings import P, G, PUBLIC_KEY, PRIVATE_KEY
 
 class CryptoCipher(object):
 
@@ -16,6 +17,7 @@ class CryptoCipher(object):
         self.p = int(P, 16)
         self.g = G
         temp_key = self.private_key_decryption(PRIVATE_KEY, key)
+        print(temp_key)
         self.key = hashlib.sha256(temp_key.encode()).digest()
 
     def encrypt_text(self, plainText):
@@ -70,4 +72,12 @@ class CryptoCipher(object):
 
     def public_key_encryption(self, public_key, plain_text):
         return str(pow(plain_text, public_key, self.p))
+
+
+def get_data(request):
+    headers = request.headers
+    if headers.get('Session-Key'):
+        return CryptoCipher(headers['Session-Key'])
+    else:
+        raise ValidationError("session_key is invalid.")
 
