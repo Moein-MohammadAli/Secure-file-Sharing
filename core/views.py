@@ -24,8 +24,10 @@ class RegisterView(viewsets.GenericViewSet,
     serializer_class = UserSerializer
 
     def create(self, request, *args, **kwargs):
+        print(request.data['data'])
         crypto_obj = get_data(request)
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
+        print(plain_text)
         data = json.loads(plain_text)
         data = data if isinstance(data, dict) else {}
         serializer = self.get_serializer(data=data)
