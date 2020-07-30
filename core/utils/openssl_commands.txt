@@ -1,0 +1,2 @@
+openssl genrsa -out keypair.pem 2048
+openssl pkey -in keypair.pem -text -noout | tr -d ':'
