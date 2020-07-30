@@ -7,24 +7,18 @@ from Crypto.Cipher import AES
 from rest_framework.exceptions import ValidationError
 import struct
 import json
+from django.conf import settings
 
-# os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
-# from django.conf import settings
-# from backend.settings import P, PUBLIC_KEY, PRIVATE_KEY
-
-
-sys.path.append('../../backend')
-from settings import P, PUBLIC_KEY, PRIVATE_KEY
+PUBLIC_KEY = getattr(settings, "PUBLIC_KEY")
+PRIVATE_KEY = getattr(settings, "PRIVATE_KEY")
+P = getattr(settings, "P")
 
 class CryptoCipher(object):
 
     def __init__(self, key): 
         self.blockSize = AES.block_size
         self.p = P
-        # self.g = G
-        # print(self.public_key_encryption(PUBLIC_KEY, pub))
         temp_key = self.private_key_decryption(PRIVATE_KEY, key)
-        print(temp_key)
         self.key = hashlib.sha256(temp_key.encode()).digest()
 
     def encrypt_text(self, plainText):
@@ -88,4 +82,3 @@ def get_data(request):
         return CryptoCipher(headers['Session-Key'])
     else:
         raise ValidationError("session_key is invalid.")
-
