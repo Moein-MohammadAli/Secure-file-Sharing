@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'rest_framework.authtoken',
     'core'
 ]
 
@@ -177,3 +179,10 @@ PUBLIC_KEY = ("7a63a5c04d993573ed1b2e90e4c5a1"
         "54c31253481cf43daad1db8e449c95"
         "207fb9c345d129892a25ee6d7dac2c"
         "cc")
+
+DEFAULT_TOKEN_EXPIRE = {
+    # if the user doesn't use the token in this period token expires.
+    'PER_USE': 24 * 60 * 60,
+    # the token expires after this time.
+    'TOTAL': 10 * 24 * 60 * 60
+}
