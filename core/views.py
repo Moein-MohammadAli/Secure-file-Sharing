@@ -25,8 +25,9 @@ class RegisterView(viewsets.GenericViewSet,
 
     def create(self, request, *args, **kwargs):
         crypto_obj = get_data(request)
-        plain_text = crypto_obj.decrypt_text(request.data['data'])
-        data = json.loads(plain_text if isinstance(plain_text, dict) else "{}")
+        plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
+        data = json.loads(plain_text)
+        data = data if isinstance(data, dict) else {}
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -50,8 +51,9 @@ class LoginView(viewsets.GenericViewSet,
 
     def create(self, request, *args, **kwargs):
         crypto_obj = get_data(request)
-        plain_text = crypto_obj.decrypt_text(request.data['data'])
-        data = json.loads(plain_text if isinstance(plain_text, dict) else "{}")
+        plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
+        data = json.loads(plain_text)
+        data = data if isinstance(data, dict) else {}
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
@@ -63,4 +65,9 @@ class LoginView(viewsets.GenericViewSet,
                 token.delete()
                 token = Token.objects.create(user=user)
         headers = self.get_success_headers(serializer.data)
-        return Response({'token': token.key}, status=status.HTTP_201_CREATED, headers=headers)
+        response = crypto_obj.encrypt_text("{}".format(
+            {
+                'token': token.key
+            }
+        ))
+        return Response({'response': response}, status=status.HTTP_200_OK, headers=headers)

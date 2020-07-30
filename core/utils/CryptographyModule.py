@@ -10,11 +10,11 @@ import json
 
 # os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 # from django.conf import settings
-# from backend.settings import P, PUBLIC_KEY, PRIVATE_KEY
+from backend.settings import P, PUBLIC_KEY, PRIVATE_KEY
 
 
-sys.path.append('../../backend')
-from settings import P, PUBLIC_KEY, PRIVATE_KEY
+# sys.path.append('../../backend')
+# from settings import P, PUBLIC_KEY, PRIVATE_KEY
 
 class CryptoCipher(object):
 
@@ -24,7 +24,6 @@ class CryptoCipher(object):
         # self.g = G
         # print(self.public_key_encryption(PUBLIC_KEY, pub))
         temp_key = self.private_key_decryption(PRIVATE_KEY, key)
-        print(temp_key)
         self.key = hashlib.sha256(temp_key.encode()).digest()
 
     def encrypt_text(self, plainText):
