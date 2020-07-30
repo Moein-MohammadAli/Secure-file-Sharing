@@ -9,10 +9,11 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
+from core.models import TokenAuth as Token
 from django.conf import settings
 from django.utils import timezone
 from datetime import datetime, timedelta
+from rest_framework.exceptions import AuthenticationFailed
 
 from core.utils.CryptographyModule import CryptoCipher, get_data
 
@@ -57,17 +58,25 @@ class LoginView(viewsets.GenericViewSet,
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        # Checking state that the token of user expired and generate new token for this user.
-        if not created:
-            if not (timezone.now() - timedelta(seconds=self.DEFAULT_TOKEN_EXPIRE['PER_USE'])) < token.last_use or \
-                    not (timezone.now() - timedelta(seconds=self.DEFAULT_TOKEN_EXPIRE['TOTAL'])) < token.created:
-                token.delete()
-                token = Token.objects.create(user=user)
-        headers = self.get_success_headers(serializer.data)
-        response = crypto_obj.encrypt_text("{}".format(
-            {
-                'token': token.key
-            }
-        ))
-        return Response({'response': response}, status=status.HTTP_200_OK, headers=headers)
+        try:
+            token, created = Token.objects.get_or_create(user=user)
+            # Checking state that the token of user expired and generate new token for this user.
+            if not created:
+                if not (timezone.now() - timedelta(seconds=self.DEFAULT_TOKEN_EXPIRE['PER_USE'])) < token.last_use or \
+                        not (timezone.now() - timedelta(seconds=self.DEFAULT_TOKEN_EXPIRE['TOTAL'])) < token.created:
+                    token.delete()
+                    token = Token.objects.create(user=user)
+            headers = self.get_success_headers(serializer.data)
+            response = crypto_obj.encrypt_text("{}".format(
+                {
+                    'token': token.key
+                }
+            ))
+            return Response({'response': response}, status=status.HTTP_200_OK, headers=headers)
+        except AuthenticationFailed as e:
+            response = crypto_obj.encrypt_text("{}".format(
+                {
+                    'response': e
+                }
+            ))
+            return Response({'response': response}, status=status.HTTP_401_UNAUTHORIZED)
