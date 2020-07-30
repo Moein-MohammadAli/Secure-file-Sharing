@@ -13,6 +13,7 @@ from core.models import TokenAuth as Token
 from django.conf import settings
 from django.utils import timezone
 from datetime import datetime, timedelta
+from django.db.utils import IntegrityError
 from rest_framework.exceptions import AuthenticationFailed
 
 from core.utils.CryptographyModule import CryptoCipher, get_data
@@ -25,25 +26,31 @@ class RegisterView(viewsets.GenericViewSet,
     serializer_class = UserSerializer
 
     def create(self, request, *args, **kwargs):
-        print(request.data['data'])
         crypto_obj = get_data(request)
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
-        print(plain_text)
         data = json.loads(plain_text)
         data = data if isinstance(data, dict) else {}
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         password = data.pop('password')
-        user = Account(**data)
-        user.set_password(password)
-        user.save()
-        response = crypto_obj.encrypt_text("{}".format(
-            {
-                "response": "user created."
-            }
-        ))
-        return Response({'response': response}, status.HTTP_201_CREATED)
+        try:
+            user = Account(**data)
+            user.set_password(password)
+            user.save()
+            response = crypto_obj.encrypt_text("{}".format(
+                {
+                    "response": "user created."
+                }
+            ))
+            return Response({'response': response}, status.HTTP_201_CREATED)
+        except IntegrityError as e:
+            response = crypto_obj.encrypt_text("{}".format(
+                {
+                    "response": "This username exist."
+                }
+            ))
+            return Response({"response": response}, status.HTTP_400_BAD_REQUEST)
 
 
 class LoginView(viewsets.GenericViewSet,
@@ -57,10 +64,10 @@ class LoginView(viewsets.GenericViewSet,
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
         data = data if isinstance(data, dict) else {}
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
         try:
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            user = serializer.validated_data['user']
             token, created = Token.objects.get_or_create(user=user)
             # Checking state that the token of user expired and generate new token for this user.
             if not created:
@@ -75,7 +82,15 @@ class LoginView(viewsets.GenericViewSet,
                 }
             ))
             return Response({'response': response}, status=status.HTTP_200_OK, headers=headers)
-        except AuthenticationFailed as e:
+        except ValidationError as e:
+            error = e.detail.get('response')
+            response = crypto_obj.encrypt_text("{}".format(
+                {
+                    'response': error[0].__str__() if error else 'error'
+                }
+            ))
+            return Response({'response': response}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
             response = crypto_obj.encrypt_text("{}".format(
                 {
                     'response': e

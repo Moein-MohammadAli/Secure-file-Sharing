@@ -4,6 +4,7 @@ from django.utils.translation import ugettext_lazy as _
 from core.models import Account
 from core.utils.CryptographyModule import CryptoCipher
 from django.contrib.auth import authenticate
+from rest_framework.exceptions import AuthenticationFailed
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,9 @@ class AuthTokenSerializer(serializers.Serializer):
     def create(self, validated_data):
         pass
 
-    username = serializers.CharField(label=_("Username"))
+    username = serializers.CharField(required=False, label=_("Username"))
     password = serializers.CharField(
+        required=False,
         label=_("Password"),
         style={'input_type': 'password'},
         trim_whitespace=False
@@ -53,10 +55,8 @@ class AuthTokenSerializer(serializers.Serializer):
             # users. (Assuming the default ModelBackend authentication
             # backend.)
             if not user:
-                msg = _('Unable to log in with provided credentials.')
-                raise serializers.ValidationError(msg, code='authorization')
+                raise serializers.ValidationError({'response': 'Unable to log in with provided credentials.'})
         else:
-            msg = _('Must include "username" and "password".')
-            raise serializers.ValidationError(msg, code='authorization')
+            raise serializers.ValidationError({'response': 'Must include Username and Password.'})
         attrs['user'] = user
         return attrs
