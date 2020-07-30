@@ -21,6 +21,7 @@ class CryptoCipher(object):
         self.p = P
         temp_key = self.private_key_decryption(PRIVATE_KEY, key)
         self.key = hashlib.sha256(temp_key.encode()).digest()
+        print(temp_key)
 
     def encrypt_text(self, plainText):
         plainText = self.pad(plainText)
@@ -30,10 +31,9 @@ class CryptoCipher(object):
 
     def decrypt_text(self, cipherText):
         cipherText = base64.b64decode(cipherText)
-
         iv = cipherText[:AES.block_size]
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        return self.unpad(cipher.decrypt(cipherText[AES.block_size:])).decode()
+        return self.unpad(cipher.decrypt(cipherText[AES.block_size:])).decode('utf-8')
 
     def pad(self, s):
         return s + (self.blockSize - len(s) % self.blockSize) * chr(self.blockSize - len(s) % self.blockSize)
