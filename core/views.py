@@ -3,6 +3,7 @@ import json
 
 from core.models import Account, File
 from core.serializers import UserSerializer, AuthTokenSerializer, FileSerializer
+from core.serializers import FileUploadSerializer
 from rest_framework import filters
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import SessionAuthentication
@@ -17,6 +18,8 @@ from django.db.utils import IntegrityError
 from rest_framework.exceptions import AuthenticationFailed
 from core.authentication import ExpireTokenAuthentication
 from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.renderers import JSONRenderer
+from django.http import JsonResponse
 
 from core.utils.CryptographyModule import CryptoCipher, get_data
 
@@ -101,11 +104,31 @@ class LoginView(viewsets.GenericViewSet,
             return Response({'response': response}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-class ListView(viewsets.GenericViewSet, mixins.ListModelMixin):
+class ListView(viewsets.GenericViewSet, 
+               mixins.ListModelMixin):
     queryset = File.objects.all()
     serializer_class = FileSerializer
     authentication_classes = [ExpireTokenAuthentication]
     permission_classes = [BasePermission, IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        return self.list(request)
 
     def list(self, request, *args, **kwargs):
-        return Response({"response": self.queryset})
+        crypto_obj = get_data(request)
+        queryset = self.get_queryset()
+        serializer = FileSerializer(queryset, many=True)
+        rsp = "{}".format(json.dumps(serializer.data[0]))
+        print(serializer.data[0])
+        rsp = crypto_obj.encrypt_text(rsp)
+        return Response({"response": rsp})
+
+
+class UploadView(viewsets.ModelViewSet):
+    queryset = File.objects.all()
+    serializer_class = FileUploadSerializer
+    authentication_classes = [ExpireTokenAuthentication]
+    permission_classes = [BasePermission, IsAuthenticated]
+
+    def put(self, request, *args, **kwargs):
+         pass

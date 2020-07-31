@@ -46,6 +46,7 @@ class File(models.Model):
     )
     file_name = models.CharField(max_length=32)
     owner = models.ForeignKey(Account, on_delete=models.CASCADE)
+    data_file = models.FileField()
     confidentiality_label = models.IntegerField(blank=False, choices=CONF_LABEL)
     integrity_label = models.IntegerField(blank=False, choices=INTEGRITY_LABEL)
     created_at = models.DateTimeField(auto_now_add=True)

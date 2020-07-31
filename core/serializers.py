@@ -61,8 +61,14 @@ class AuthTokenSerializer(serializers.Serializer):
         attrs['user'] = user
         return attrs
 
+
 class FileSerializer(serializers.ModelSerializer):
-    owner = serializers.CharField(source='owner.username', read_only=True)
+    owner = serializers.PrimaryKeyRelatedField(source='owner.username', read_only=True)
+
     class Meta:
         model = File
         fields = ['file_name', 'owner', 'confidentiality_label', 'integrity_label']
+
+
+class FileUploadSerializer(serializers.ModelSerializer):
+    pass
