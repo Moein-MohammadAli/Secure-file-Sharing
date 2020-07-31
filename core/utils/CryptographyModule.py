@@ -21,7 +21,6 @@ class CryptoCipher(object):
         self.p = P
         temp_key = self.private_key_decryption(PRIVATE_KEY, key)
         self.key = hashlib.sha256(temp_key.encode()).digest()
-        print(temp_key)
 
     def encrypt_text(self, plainText):
         plainText = self.pad(plainText)

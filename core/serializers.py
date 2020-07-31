@@ -1,7 +1,7 @@
 import logging
 from rest_framework import serializers
 from django.utils.translation import ugettext_lazy as _
-from core.models import Account
+from core.models import Account, File
 from core.utils.CryptographyModule import CryptoCipher
 from django.contrib.auth import authenticate
 
@@ -60,3 +60,9 @@ class AuthTokenSerializer(serializers.Serializer):
             raise serializers.ValidationError(msg, code='authorization')
         attrs['user'] = user
         return attrs
+
+class FileSerializer(serializers.ModelSerializer):
+    owner = serializers.CharField(source='owner.username', read_only=True)
+    class Meta:
+        model = File
+        fields = ['file_name', 'owner', 'confidentiality_label', 'integrity_label']

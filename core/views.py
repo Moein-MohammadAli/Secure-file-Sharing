@@ -1,8 +1,8 @@
 import logging
 import json
 
-from core.models import Account
-from core.serializers import UserSerializer, AuthTokenSerializer
+from core.models import Account, File
+from core.serializers import UserSerializer, AuthTokenSerializer, FileSerializer
 from rest_framework import filters
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import SessionAuthentication
@@ -82,3 +82,11 @@ class LoginView(viewsets.GenericViewSet,
                 }
             ))
             return Response({'response': response}, status=status.HTTP_401_UNAUTHORIZED)
+
+class ListView(viewsets.ModelViewSet):
+    queryset = File.objects.all()
+    serializer_class = FileSerializer
+
+    def retrieve(self):
+        return Response({"response": self.queryset})
+        
