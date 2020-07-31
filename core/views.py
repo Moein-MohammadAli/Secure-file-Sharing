@@ -15,6 +15,8 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db.utils import IntegrityError
 from rest_framework.exceptions import AuthenticationFailed
+from core.authentication import ExpireTokenAuthentication
+from rest_framework.permissions import BasePermission, IsAuthenticated
 
 from core.utils.CryptographyModule import CryptoCipher, get_data
 
@@ -98,10 +100,12 @@ class LoginView(viewsets.GenericViewSet,
             ))
             return Response({'response': response}, status=status.HTTP_401_UNAUTHORIZED)
 
-class ListView(viewsets.ModelViewSet):
+
+class ListView(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = File.objects.all()
     serializer_class = FileSerializer
+    authentication_classes = [ExpireTokenAuthentication]
+    permission_classes = [BasePermission, IsAuthenticated]
 
-    def retrieve(self):
+    def list(self, request, *args, **kwargs):
         return Response({"response": self.queryset})
-        
