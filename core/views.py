@@ -1,9 +1,10 @@
 import logging
 import json
+import os
 
 from core.models import Account, File
 from core.serializers import UserSerializer, AuthTokenSerializer, FileSerializer
-from core.serializers import FileUploadSerializer
+from core.serializers import FileUploadSerializer, WriteFileSerializer
 from rest_framework import filters
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import SessionAuthentication
@@ -19,6 +20,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from core.authentication import ExpireTokenAuthentication
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.renderers import JSONRenderer
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.http import JsonResponse
 
 from core.utils.CryptographyModule import CryptoCipher, get_data
@@ -112,23 +114,100 @@ class ListView(viewsets.GenericViewSet,
     permission_classes = [BasePermission, IsAuthenticated]
     
     def post(self, request, *args, **kwargs):
-        return self.list(request)
+        return self.list(request, *args, **kwargs)
 
     def list(self, request, *args, **kwargs):
         crypto_obj = get_data(request)
         queryset = self.get_queryset()
         serializer = FileSerializer(queryset, many=True)
-        rsp = "{}".format(json.dumps(serializer.data[0]))
-        print(serializer.data[0])
-        rsp = crypto_obj.encrypt_text(rsp)
-        return Response({"response": rsp})
+        try:
+            rsp = "{}".format(json.dumps(serializer.data))
+            rsp = crypto_obj.encrypt_text(rsp)
+            return Response({"response": rsp})
+        except:
+            print("No Date file in database")
+            return Response({"response": {}})
 
 
-class UploadView(viewsets.ModelViewSet):
+class UploadView(viewsets.GenericViewSet,
+                 mixins.CreateModelMixin):
     queryset = File.objects.all()
     serializer_class = FileUploadSerializer
     authentication_classes = [ExpireTokenAuthentication]
     permission_classes = [BasePermission, IsAuthenticated]
 
     def put(self, request, *args, **kwargs):
-         pass
+        data = json.dumps(request.data)
+        data = json.loads(data)
+        data["owner"] = Account.objects.get(id=int(request.user.id))
+        data["confidentiality_label"] = int(data["confidentiality_label"])
+        data["integrity_label"] = int(data["integrity_label"])
+        serializer = FileUploadSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(file_name=data["file_name"],
+                                owner=data["owner"], 
+                                confidentiality_label=data['confidentiality_label'],
+                                integrity_label=data['integrity_label'])
+            with open("./media/"+data["file_name"], 'w') as f:
+                f.write(data["data_file"])
+            return Response(status=status.HTTP_201_CREATED)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+class ReadContentView(viewsets.GenericViewSet,
+                      mixins.ListModelMixin):
+    serializer_class = FileSerializer
+    authentication_classes = [ExpireTokenAuthentication]
+    permission_classes = [BasePermission, IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        return self.list(request)
+        
+    def list(self, request, *args, **kwargs):
+        queryset = File.objects.get(file_name=request.data['file_name'])
+        data = json.dumps(request.data)
+        data = json.loads(data)
+        with open("./media/"+data['file_name'], 'r') as f:
+            content = f.read()
+        return Response({'response': content})
+
+
+class WriteContentView(viewsets.GenericViewSet,
+                       mixins.ListModelMixin):
+    
+    serializer_class = FileSerializer
+    authentication_classes = [ExpireTokenAuthentication]
+    permission_classes = [BasePermission, IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        return self.list(request)
+        
+    def list(self, request, *args, **kwargs):
+        queryset = File.objects.filter(file_name=request.data['file_name']).update(updated_at=datetime.now())
+        data = json.dumps(request.data)
+        data = json.loads(data)
+        with open("./media/"+data['file_name'], 'w') as f:
+            f.write(request.data['content'])
+        return Response({'response': request.data['content']})
+
+class GetFileView(viewsets.GenericViewSet,
+                       mixins.ListModelMixin):
+    
+    serializer_class = FileSerializer
+    authentication_classes = [ExpireTokenAuthentication]
+    permission_classes = [BasePermission, IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        return self.list(request)
+        
+    def list(self, request, *args, **kwargs):
+        queryset = File.objects.filter(file_name=request.data['file_name']).delete()
+        data = json.dumps(request.data)
+        data = json.loads(data)
+        rsp = {
+            "data_file": open("./media/"+data['file_name'], 'r'),
+            "file_name": data['file_name']
+        }
+        os.remove("./media/"+data['file_name'])
+        return Response({"response": rsp})
+     
