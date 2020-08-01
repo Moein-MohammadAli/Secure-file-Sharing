@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
-    'core'
+    'core',
+    'raven.contrib.django.raven_compat'
 ]
 
 MIDDLEWARE = [
