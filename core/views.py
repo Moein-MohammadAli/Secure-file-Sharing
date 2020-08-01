@@ -137,8 +137,9 @@ class UploadView(viewsets.GenericViewSet,
     permission_classes = [BasePermission, IsAuthenticated]
 
     def put(self, request, *args, **kwargs):
-        data = json.dumps(request.data)
-        data = json.loads(data)
+        crypto_obj = get_data(request)
+        plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
+        data = json.loads(plain_text)
         data["owner"] = Account.objects.get(id=int(request.user.id))
         data["confidentiality_label"] = int(data["confidentiality_label"])
         data["integrity_label"] = int(data["integrity_label"])
@@ -154,6 +155,7 @@ class UploadView(viewsets.GenericViewSet,
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
+
 class ReadContentView(viewsets.GenericViewSet,
                       mixins.ListModelMixin):
     serializer_class = FileSerializer
@@ -164,18 +166,18 @@ class ReadContentView(viewsets.GenericViewSet,
         return self.list(request)
         
     def list(self, request, *args, **kwargs):
-        queryset = File.objects.get(file_name=request.data['file_name'])
-        data = json.dumps(request.data)
-        data = json.loads(data)
+        crypto_obj = get_data(request)
+        plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
+        data = json.loads(plain_text)
+        queryset = File.objects.get(file_name=data['file_name'])
         with open("./media/"+data['file_name'], 'r') as f:
             content = f.read()
-        return Response({'response': content})
+        return Response({'response': crypto_obj.encrypt_text(content)})
 
 
 class WriteContentView(viewsets.GenericViewSet,
                        mixins.ListModelMixin):
-    
-    serializer_class = FileSerializer
+
     authentication_classes = [ExpireTokenAuthentication]
     permission_classes = [BasePermission, IsAuthenticated]
 
@@ -183,12 +185,14 @@ class WriteContentView(viewsets.GenericViewSet,
         return self.list(request)
         
     def list(self, request, *args, **kwargs):
-        queryset = File.objects.filter(file_name=request.data['file_name']).update(updated_at=datetime.now())
-        data = json.dumps(request.data)
-        data = json.loads(data)
+        crypto_obj = get_data(request)
+        plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
+        data = json.loads(plain_text)
+        print(data)
+        queryset = File.objects.filter(file_name=data['file_name']).update(updated_at=timezone.now())
         with open("./media/"+data['file_name'], 'w') as f:
-            f.write(request.data['content'])
-        return Response({'response': request.data['content']})
+            f.write(data['content'])
+        return Response({'response': crypto_obj.encrypt_text("content written successfully")})
 
 class GetFileView(viewsets.GenericViewSet,
                        mixins.ListModelMixin):
@@ -201,13 +205,15 @@ class GetFileView(viewsets.GenericViewSet,
         return self.list(request)
         
     def list(self, request, *args, **kwargs):
-        queryset = File.objects.filter(file_name=request.data['file_name']).delete()
-        data = json.dumps(request.data)
-        data = json.loads(data)
+        crypto_obj = get_data(request)
+        plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
+        data = json.loads(plain_text)
+        queryset = File.objects.filter(file_name=data['file_name']).delete()
         rsp = {
-            "data_file": open("./media/"+data['file_name'], 'r'),
+            "data_file": open("./media/"+data['file_name'], 'r').read(),
             "file_name": data['file_name']
         }
         os.remove("./media/"+data['file_name'])
-        return Response({"response": rsp})
+        enc_rsp = crypto_obj.encrypt_text("{}".format(rsp))
+        return Response({"response": enc_rsp})
      

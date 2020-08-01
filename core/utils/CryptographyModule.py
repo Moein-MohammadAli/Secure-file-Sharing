@@ -32,7 +32,7 @@ class CryptoCipher(object):
         cipherText = base64.b64decode(cipherText)
         iv = cipherText[:AES.block_size]
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        return self.unpad(cipher.decrypt(cipherText[AES.block_size:])).decode('utf-8')
+        return self.unpad(cipher.decrypt(cipherText[AES.block_size:])).decode()
 
     def pad(self, s):
         return s + (self.blockSize - len(s) % self.blockSize) * chr(self.blockSize - len(s) % self.blockSize)
