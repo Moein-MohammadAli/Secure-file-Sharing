@@ -4,7 +4,7 @@ import os
 
 from core.models import Account, File
 from core.serializers import UserSerializer, AuthTokenSerializer, FileSerializer
-from core.serializers import FileUploadSerializer, WriteFileSerializer
+from core.serializers import FileUploadSerializer
 from rest_framework import filters
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import SessionAuthentication
@@ -24,6 +24,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.http import JsonResponse
 
 from core.utils.CryptographyModule import CryptoCipher, get_data
+from core.utils.general import *
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +124,9 @@ class ListView(viewsets.GenericViewSet,
         try:
             rsp = "{}".format(json.dumps(serializer.data))
             rsp = crypto_obj.encrypt_text(rsp)
-            return Response({"response": rsp})
-        except:
-            print("No Date file in database")
+            return Response({"response": rsp}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
             return Response({"response": {}})
 
 
@@ -169,10 +170,19 @@ class ReadContentView(viewsets.GenericViewSet,
         crypto_obj = get_data(request)
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
-        queryset = File.objects.get(file_name=data['file_name'])
-        with open("./media/"+data['file_name'], 'r') as f:
-            content = f.read()
-        return Response({'response': crypto_obj.encrypt_text(content)})
+        try:
+            queryset = File.objects.get(file_name=data['file_name'])
+            subject_level = Account.objects.get(pk=request.user.id).confidentiality_label
+            if (BLP.s_property(subject_level, queryset.confidentiality_label) and 
+                    Biba.s_property(subject_level, queryset.confidentiality_label)):
+                with open("./media/"+data['file_name'], 'r') as f:
+                    content = f.read()
+                return Response({'response': crypto_obj.encrypt_text(content)}, status=status.HTTP_200_OK)
+            else:
+                return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
+        except File.DoesNotExist as e:
+            print(e)
+            return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class WriteContentView(viewsets.GenericViewSet,
@@ -188,11 +198,21 @@ class WriteContentView(viewsets.GenericViewSet,
         crypto_obj = get_data(request)
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
-        print(data)
-        queryset = File.objects.filter(file_name=data['file_name']).update(updated_at=timezone.now())
-        with open("./media/"+data['file_name'], 'w') as f:
-            f.write(data['content'])
-        return Response({'response': crypto_obj.encrypt_text("content written successfully")})
+        try:
+            queryset = File.objects.get(file_name=data['file_name'])
+            subject_level = Account.objects.get(pk=request.user.id).confidentiality_label
+            if (BLP.star_property(subject_level, queryset.confidentiality_label) and
+                    Biba.star_property(subject_level, queryset.confidentiality_label)):
+                File.objects.filter(file_name=data['file_name']).update(updated_at=timezone.now())
+                with open("./media/"+data['file_name'], 'w') as f:
+                    f.write(data['content'])
+                return Response({'response': crypto_obj.encrypt_text("content written successfully")})
+            else:
+                return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
+        except File.DoesNotExist as e:
+            print(e)
+            return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
 
 class GetFileView(viewsets.GenericViewSet,
                        mixins.ListModelMixin):
@@ -208,12 +228,24 @@ class GetFileView(viewsets.GenericViewSet,
         crypto_obj = get_data(request)
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
-        queryset = File.objects.filter(file_name=data['file_name']).delete()
-        rsp = {
-            "data_file": open("./media/"+data['file_name'], 'r').read(),
-            "file_name": data['file_name']
-        }
-        os.remove("./media/"+data['file_name'])
-        enc_rsp = crypto_obj.encrypt_text("{}".format(rsp))
-        return Response({"response": enc_rsp})
+        try:
+            queryset = File.objects.get(file_name=data['file_name'])
+            print(request.user == queryset.owner)
+            print(request.user)
+            print(type(request.user.id))
+            print(type(queryset.owner.id))
+            if request.user.id == queryset.owner.id:
+                File.objects.filter(file_name=data['file_name']).delete()
+                rsp = {
+                    "data_file": open("./media/"+data['file_name'], 'r').read(),
+                    "file_name": data['file_name']
+                }
+                os.remove("./media/"+data['file_name'])
+                enc_rsp = crypto_obj.encrypt_text("{}".format(rsp))
+                return Response({"response": enc_rsp})
+            else:
+                return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
+        except File.DoesNotExist as e:
+            print(e)
+            return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
      

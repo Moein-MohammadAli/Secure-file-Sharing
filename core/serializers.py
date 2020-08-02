@@ -75,9 +75,3 @@ class FileUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = File
         fields = ['file_name', 'owner', 'confidentiality_label', 'integrity_label']
-
-class WriteFileSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = File
-        fields = ['file_name']
