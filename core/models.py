@@ -44,9 +44,26 @@ class File(models.Model):
         (3, "SlightlyTrusted"),
         (4, "Untrusted")
     )
-    file_name = models.CharField(max_length=32)
+    file_name_hashed = models.CharField(max_length=32, blank=False, unique=True)
+    file_name = models.CharField(max_length=32, blank=False, unique=True)
     owner = models.ForeignKey(Account, on_delete=models.CASCADE)
     confidentiality_label = models.IntegerField(blank=False, choices=CONF_LABEL)
     integrity_label = models.IntegerField(blank=False, choices=INTEGRITY_LABEL)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class AccessControl(models.Model):
+    ACCESS_TYPE = (
+        (0, "None"),
+        (1, "Read"),
+        (2, "Write"),
+        (3, "Read/Write"),
+        (4, "Get"),
+        (5, "Get/Read"),
+        (6, "Get/Write"),
+        (7, "Get/Write/Read")
+    )
+    subject = models.ForeignKey(Account, on_delete=models.CASCADE)
+    obj = models.ForeignKey(File, on_delete=models.CASCADE)
+    access = models.IntegerField(blank=False, choices=ACCESS_TYPE, default=0)

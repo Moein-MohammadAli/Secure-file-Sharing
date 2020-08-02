@@ -2,7 +2,7 @@ import logging
 import json
 import os
 
-from core.models import Account, File
+from core.models import Account, File, AccessControl
 from core.serializers import UserSerializer, AuthTokenSerializer, FileSerializer
 from core.serializers import FileUploadSerializer
 from rest_framework import filters
@@ -28,6 +28,7 @@ from core.utils.general import *
 
 logger = logging.getLogger(__name__)
 
+MAX_FILE_SIZE = 10**6
 
 class RegisterView(viewsets.GenericViewSet,
                    mixins.CreateModelMixin):
@@ -145,13 +146,17 @@ class UploadView(viewsets.GenericViewSet,
         data["confidentiality_label"] = int(data["confidentiality_label"])
         data["integrity_label"] = int(data["integrity_label"])
         serializer = FileUploadSerializer(data=data)
-        if serializer.is_valid():
+        if (serializer.is_valid() and 
+                len(data['data_file']) <= MAX_FILE_SIZE):
             serializer.save(file_name=data["file_name"],
+                                file_name_hashed=blake(data["file_name"]),
                                 owner=data["owner"], 
                                 confidentiality_label=data['confidentiality_label'],
                                 integrity_label=data['integrity_label'])
-            with open("./media/"+data["file_name"], 'w') as f:
+            with open("./media/"+blake(data["file_name"]), 'w') as f:
                 f.write(data["data_file"])
+            obj = File.objects.get(file_name_hashed=blake(data["file_name"]))
+            AccessControl.objects.create(subject=data["owner"], obj=obj, access=7).save()
             return Response(status=status.HTTP_201_CREATED)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -171,13 +176,17 @@ class ReadContentView(viewsets.GenericViewSet,
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
         try:
-            queryset = File.objects.get(file_name=data['file_name'])
+            queryset = File.objects.get(file_name_hashed=blake(data["file_name"]))
             subject_level = Account.objects.get(pk=request.user.id).confidentiality_label
-            if (BLP.s_property(subject_level, queryset.confidentiality_label) and 
-                    Biba.s_property(subject_level, queryset.confidentiality_label)):
-                with open("./media/"+data['file_name'], 'r') as f:
-                    content = f.read()
-                return Response({'response': crypto_obj.encrypt_text(content)}, status=status.HTTP_200_OK)
+            if ((BLP.s_property(subject_level, queryset.confidentiality_label) and 
+                    Biba.s_property(subject_level, queryset.confidentiality_label)) and 
+                    has_access(request.user, queryset, "Get")):
+                if (os.stat("./media/"+blake(data["file_name"])).st_size <= MAX_FILE_SIZE):
+                    with open("./media/"+blake(data["file_name"]), 'r') as f:
+                        content = f.read()
+                    return Response({'response': crypto_obj.encrypt_text(content)}, status=status.HTTP_200_OK)
+                else:
+                    print("Requested File is not valid due to maximum file limit size")
             else:
                 return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
         except File.DoesNotExist as e:
@@ -199,14 +208,18 @@ class WriteContentView(viewsets.GenericViewSet,
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
         try:
-            queryset = File.objects.get(file_name=data['file_name'])
+            queryset = File.objects.get(file_name_hashed=blake(data["file_name"]))
             subject_level = Account.objects.get(pk=request.user.id).confidentiality_label
-            if (BLP.star_property(subject_level, queryset.confidentiality_label) and
-                    Biba.star_property(subject_level, queryset.confidentiality_label)):
-                File.objects.filter(file_name=data['file_name']).update(updated_at=timezone.now())
-                with open("./media/"+data['file_name'], 'w') as f:
-                    f.write(data['content'])
-                return Response({'response': crypto_obj.encrypt_text("content written successfully")})
+            if ((BLP.star_property(subject_level, queryset.confidentiality_label) and
+                    Biba.star_property(subject_level, queryset.confidentiality_label)) and 
+                    has_access(request.user, queryset, "Get")):
+                if (len(data['content']) <= MAX_FILE_SIZE):
+                    File.objects.filter(file_name=blake(data["file_name"])).update(updated_at=timezone.now())
+                    with open("./media/"+blake(data["file_name"]), 'w') as f:
+                        f.write(data['content'])
+                    return Response({'response': crypto_obj.encrypt_text("content written successfully")})
+                else:
+                    print("Requested File is not valid due to maximum file limit size")
             else:
                 return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
         except File.DoesNotExist as e:
@@ -229,20 +242,19 @@ class GetFileView(viewsets.GenericViewSet,
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
         try:
-            queryset = File.objects.get(file_name=data['file_name'])
-            print(request.user == queryset.owner)
-            print(request.user)
-            print(type(request.user.id))
-            print(type(queryset.owner.id))
-            if request.user.id == queryset.owner.id:
-                File.objects.filter(file_name=data['file_name']).delete()
-                rsp = {
-                    "data_file": open("./media/"+data['file_name'], 'r').read(),
-                    "file_name": data['file_name']
-                }
-                os.remove("./media/"+data['file_name'])
-                enc_rsp = crypto_obj.encrypt_text("{}".format(rsp))
-                return Response({"response": enc_rsp})
+            queryset = File.objects.get(file_name_hashed=blake(data["file_name"]))
+            if request.user.id == queryset.owner.id or has_access(request.user, queryset, "Get"):
+                if (os.stat("./media/"+blake(data["file_name"])).st_size <= MAX_FILE_SIZE):
+                    File.objects.filter(file_name_hashed=blake(data["file_name"])).delete()
+                    rsp = {
+                        "data_file": open("./media/"+blake(data["file_name"]), 'r').read(),
+                        "file_name": data['file_name']
+                    }
+                    os.remove("./media/"+blake(data["file_name"]))
+                    enc_rsp = crypto_obj.encrypt_text("{}".format(rsp))
+                    return Response({"response": enc_rsp})
+                else:
+                    print("Requested File is not valid due to maximum file limit size")
             else:
                 return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
         except File.DoesNotExist as e:
