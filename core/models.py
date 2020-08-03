@@ -4,7 +4,6 @@ from rest_framework.authtoken.models import Token
 
 # Create your models here.
 
-
 class Account(User):
     CONF_LABEL = (
         (1, "TopSecret"),
@@ -30,6 +29,7 @@ class TokenAuth(Token):
 
     def __str__(self):
         return self.key
+
 
 class File(models.Model):
     CONF_LABEL = (

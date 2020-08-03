@@ -55,8 +55,10 @@ class AuthTokenSerializer(serializers.Serializer):
             # users. (Assuming the default ModelBackend authentication
             # backend.)
             if not user:
+                logger.critical("User {} try to login with incorrect password.".format(username))
                 raise serializers.ValidationError({'response': 'Unable to log in with provided credentials.'})
         else:
+            logger.debug("A user with send invalid data to server.")
             raise serializers.ValidationError({'response': 'Must include Username and Password.'})
         attrs['user'] = user
         return attrs

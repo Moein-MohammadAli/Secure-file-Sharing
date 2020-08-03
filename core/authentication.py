@@ -6,6 +6,9 @@ from django.utils import timezone
 from core.models import TokenAuth
 from datetime import timedelta
 from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ExpireTokenAuthentication(TokenAuthentication):
@@ -22,10 +25,12 @@ class ExpireTokenAuthentication(TokenAuthentication):
         try:
             token = self.model.objects.select_related('user').get(key=key)
         except self.model.DoesNotExist:
+            logger.critical("a user try to authenticate credential with incorrect token.")
             raise AuthenticationFailed(_('Invalid token.'))
 
         if not (timezone.now() - timedelta(seconds=self.DEFAULT_TOKEN_EXPIRE['PER_USE'])) < token.last_use or\
                 not (timezone.now() - timedelta(seconds=self.DEFAULT_TOKEN_EXPIRE['TOTAL'])) < token.created:
+            logger.critical("User {} try to authenticate credential with expired token".format(token.user.user))
             raise AuthenticationFailed(_('Expired token.'))
 
         if not token.user.is_active:

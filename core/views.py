@@ -7,26 +7,23 @@ from core.serializers import UserSerializer, AuthTokenSerializer, FileSerializer
 from core.serializers import FileUploadSerializer, ChangeAccessControlSerializer
 from rest_framework import filters
 from rest_framework import viewsets, mixins, status
-from rest_framework.authentication import SessionAuthentication
-from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from core.models import TokenAuth as Token
-from django.conf import settings
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.db.utils import IntegrityError
 from rest_framework.exceptions import AuthenticationFailed
 from core.authentication import ExpireTokenAuthentication
 from rest_framework.permissions import BasePermission, IsAuthenticated
-from rest_framework.renderers import JSONRenderer
-from rest_framework.parsers import MultiPartParser, FormParser
-from django.http import JsonResponse
+from django.conf import settings
 
-from core.utils.CryptographyModule import CryptoCipher, get_data
-from core.utils.general import *
+from core.utils.CryptographyModule import get_data
+from core.utils.general import blake, Biba, BLP, has_access
 
 logger = logging.getLogger(__name__)
+
+MAX_FILE_SIZE = getattr(settings, "MAX_FILE_SIZE")
 
 
 class RegisterView(viewsets.GenericViewSet,
@@ -107,13 +104,13 @@ class LoginView(viewsets.GenericViewSet,
             return Response({'response': response}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-class ListView(viewsets.GenericViewSet, 
+class ListView(viewsets.GenericViewSet,
                mixins.ListModelMixin):
     queryset = File.objects.all()
     serializer_class = FileSerializer
     authentication_classes = [ExpireTokenAuthentication]
     permission_classes = [BasePermission, IsAuthenticated]
-    
+
     def post(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
 
@@ -126,7 +123,7 @@ class ListView(viewsets.GenericViewSet,
             rsp = crypto_obj.encrypt_text(rsp)
             return Response({"response": rsp}, status=status.HTTP_200_OK)
         except Exception as e:
-            print(e)
+            logger.debug(e)
             return Response({"response": {}})
 
 
@@ -149,19 +146,22 @@ class UploadView(viewsets.GenericViewSet,
         print(subj_conf, subj_intg, data["confidentiality_label"], data["integrity_label"])
         serializer = FileUploadSerializer(data=data)
         if serializer.is_valid() and \
-                len(data['data_file']) <= settings.MAX_FILE_SIZE and \
+                len(data['data_file']) <= MAX_FILE_SIZE and \
                 not violate_access(subj_conf, subj_intg, data["confidentiality_label"], data["integrity_label"]):
             serializer.save(file_name=data["file_name"],
-                                file_name_hashed=blake(data["file_name"]),
-                                owner=data["owner"], 
-                                confidentiality_label=data['confidentiality_label'],
-                                integrity_label=data['integrity_label'])
+                            file_name_hashed=blake(data["file_name"]),
+                            owner=data["owner"],
+                            confidentiality_label=data['confidentiality_label'],
+                            integrity_label=data['integrity_label'])
             with open("./media/"+blake(data["file_name"]), 'w') as f:
                 f.write(data["data_file"])
             obj = File.objects.get(file_name_hashed=blake(data["file_name"]))
             AccessControl.objects.create(subject=data["owner"], obj=obj, access=7).save()
             return Response(status=status.HTTP_201_CREATED)
         else:
+            if not len(data['data_file']) <= MAX_FILE_SIZE:
+                logger.debug(
+                    "Requested File is not valid due to maximum file limit size user {}".format(request.user.username))
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -173,7 +173,7 @@ class ReadContentView(viewsets.GenericViewSet,
 
     def post(self, request, *args, **kwargs):
         return self.list(request)
-        
+
     def list(self, request, *args, **kwargs):
         crypto_obj = get_data(request)
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
@@ -181,19 +181,26 @@ class ReadContentView(viewsets.GenericViewSet,
         try:
             queryset = File.objects.get(file_name_hashed=blake(data["file_name"]))
             subject_level = Account.objects.get(pk=request.user.id).confidentiality_label
-            if ((BLP.s_property(subject_level, queryset.confidentiality_label) and 
-                    Biba.s_property(subject_level, queryset.confidentiality_label)) and 
-                    has_access(request.user, queryset, "Read")):
-                if (os.stat("./media/"+blake(data["file_name"])).st_size <= settings.MAX_FILE_SIZE):
+            blp_access = BLP.s_property(subject_level, queryset.confidentiality_label)
+            biba_access = Biba.s_property(subject_level, queryset.confidentiality_label)
+            dac_access = has_access(request.user, queryset, "Get")
+            if blp_access and biba_access and dac_access:
+                if os.stat("./media/"+blake(data["file_name"])).st_size <= MAX_FILE_SIZE:
                     with open("./media/"+blake(data["file_name"]), 'r') as f:
                         content = f.read()
                     return Response({'response': crypto_obj.encrypt_text(content)}, status=status.HTTP_200_OK)
                 else:
                     print("Requested File is not valid due to maximum file limit size")
             else:
+                logger.critical({
+                    "user": str(request.user.username),
+                    "blp_access": blp_access,
+                    "biba_access": biba_access,
+                    "dac_access": dac_access
+                })
                 return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
         except File.DoesNotExist as e:
-            print(e)
+            logger.debug(e)
             return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
@@ -205,7 +212,7 @@ class WriteContentView(viewsets.GenericViewSet,
 
     def post(self, request, *args, **kwargs):
         return self.list(request)
-        
+
     def list(self, request, *args, **kwargs):
         crypto_obj = get_data(request)
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
@@ -213,41 +220,52 @@ class WriteContentView(viewsets.GenericViewSet,
         try:
             queryset = File.objects.get(file_name_hashed=blake(data["file_name"]))
             subject_level = Account.objects.get(pk=request.user.id).confidentiality_label
-            if ((BLP.star_property(subject_level, queryset.confidentiality_label) and
-                    Biba.star_property(subject_level, queryset.confidentiality_label)) and 
-                    has_access(request.user, queryset, "Write")):
-                if (len(data['content']) <= settings.MAX_FILE_SIZE):
+            blp_access = BLP.star_property(subject_level, queryset.confidentiality_label)
+            biba_access = Biba.star_property(subject_level, queryset.confidentiality_label)
+            dac_access = has_access(request.user, queryset, "Get")
+            if blp_access and biba_access and dac_access:
+                if len(data['content']) <= MAX_FILE_SIZE:
                     File.objects.filter(file_name=blake(data["file_name"])).update(updated_at=timezone.now())
                     with open("./media/"+blake(data["file_name"]), 'w') as f:
                         f.write(data['content'])
                     return Response({'response': crypto_obj.encrypt_text("content written successfully")})
                 else:
-                    print("Requested File is not valid due to maximum file limit size")
+                    logger.debug(
+                        "Requested File is not valid due to maximum file limit size user {}".format(
+                            request.user.username)
+                    )
             else:
+                logger.critical({
+                    "user": str(request.user.username),
+                    "blp_access": blp_access,
+                    "biba_access": biba_access,
+                    "dac_access": dac_access
+                })
                 return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
         except File.DoesNotExist as e:
-            print(e)
+            logger.debug(e)
             return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
-class GetFileView(viewsets.GenericViewSet,
-                       mixins.ListModelMixin):
-    
+class GetFileView(viewsets.GenericViewSet, mixins.ListModelMixin):
+
     serializer_class = FileSerializer
     authentication_classes = [ExpireTokenAuthentication]
     permission_classes = [BasePermission, IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         return self.list(request)
-        
+
     def list(self, request, *args, **kwargs):
         crypto_obj = get_data(request)
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
         try:
             queryset = File.objects.get(file_name_hashed=blake(data["file_name"]))
-            if request.user.id == queryset.owner.id or has_access(request.user, queryset, "Get"):
-                if (os.stat("./media/"+blake(data["file_name"])).st_size <= settings.MAX_FILE_SIZE):
+            access_owner = True if request.user.id == queryset.owner.id else False
+            dac_access = has_access(request.user, queryset, "Get")
+            if access_owner or dac_access:
+                if os.stat("./media/"+blake(data["file_name"])).st_size <= MAX_FILE_SIZE:
                     File.objects.filter(file_name_hashed=blake(data["file_name"])).delete()
                     rsp = {
                         "data_file": open("./media/"+blake(data["file_name"]), 'r').read(),
@@ -257,11 +275,19 @@ class GetFileView(viewsets.GenericViewSet,
                     enc_rsp = crypto_obj.encrypt_text("{}".format(rsp))
                     return Response({"response": enc_rsp})
                 else:
-                    print("Requested File is not valid due to maximum file limit size")
+                    logger.debug(
+                        "Requested File is not valid due to maximum file limit size user {}".format(
+                            request.user.username
+                        ))
             else:
+                logger.critical({
+                    "user": str(request.user.username),
+                    "access_owner": access_owner,
+                    "dac_access": dac_access
+                })
                 return Response({'response': crypto_obj.encrypt_text("Access Denied")}, status=status.HTTP_403_FORBIDDEN)
         except File.DoesNotExist as e:
-            print(e)
+            logger.debug(e)
             return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 

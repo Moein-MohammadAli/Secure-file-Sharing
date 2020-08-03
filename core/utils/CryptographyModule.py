@@ -1,12 +1,9 @@
-import os, sys
-import random
 import base64
 import hashlib
 from Crypto import Random
 from Crypto.Cipher import AES
 from rest_framework.exceptions import ValidationError
-import struct
-import json
+
 from django.conf import settings
 
 PUBLIC_KEY = getattr(settings, "PUBLIC_KEY")
