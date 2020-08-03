@@ -75,10 +75,10 @@ LOGGING = {
             'formatter': 'verbose',
             'filename': os.path.join(BASE_DIR, '.important.log')
         },
-        'sentry': {
-            'level': 'ERROR',
-            'class': 'raven.contrib.django.handlers.SentryHandler',
-        },
+        # 'sentry': {
+        #     'level': 'ERROR',
+        #     'class': 'raven.contrib.django.handlers.SentryHandler',
+        # },
         # 'mail': {
         #     'level': 'CRITICAL',
         #     'class': 'django.utils.log.AdminEmailHandler',
@@ -97,15 +97,17 @@ LOGGING = {
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
-sentry_sdk.init(
-    dsn="https://ce6d39619ff24a2f9b18f66846360de6@o428081.ingest.sentry.io/5373053",
-    integrations=[DjangoIntegration()],
+# sentry_sdk.init(
+#     dsn="https://ce6d39619ff24a2f9b18f66846360de6@o428081.ingest.sentry.io/5373053",
+#     integrations=[DjangoIntegration()],
 
-    # If you wish to associate users to errors (assuming you are using
-    # django.contrib.auth) you may enable sending PII data.
-    send_default_pii=True
-)
+#     # If you wish to associate users to errors (assuming you are using
+#     # django.contrib.auth) you may enable sending PII data.
+#     send_default_pii=True
+# )
 
-RAVEN_CONFIG = {
-    'dsn': 'https://ce6d39619ff24a2f9b18f66846360de6@o428081.ingest.sentry.io/5373053',
-}
+# RAVEN_CONFIG = {
+#     'dsn': 'https://ce6d39619ff24a2f9b18f66846360de6@o428081.ingest.sentry.io/5373053',
+# }
+
+MAX_FILE_SIZE = 10**6

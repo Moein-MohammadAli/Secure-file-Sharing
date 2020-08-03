@@ -48,9 +48,9 @@ class Biba:
 
 def has_access(subject, obj, permission):
     access = AccessControl.objects.get(subject=subject, obj=obj).access
-    read_list, write_list, get_list = [1, 3, 5, 7], [2, 3, 6, 7], [4, 5, 6, 7]
+    read_list, write_list= [1, 3], [2, 3]
     if permission == "Get":
-        if (access in get_list):
+        if (access == 4):
             return True
     elif permission == "Write":
         if (access in write_list):
@@ -59,3 +59,23 @@ def has_access(subject, obj, permission):
         if (access in read_list):
             return True
     return False
+
+
+def violate_access(subject_conf_level, subject_intg_level, 
+                   object_conf_level, object_intg_level):
+    '''
+    if any of the properties for BLP or Biba mode violated,
+    uploaded file has wrong labels
+    '''
+    if not BLP.s_property(subject_conf_level, object_conf_level):
+        return True
+    elif not BLP.star_property(subject_conf_level, object_conf_level):
+        return True
+    elif not Biba.s_property(subject_intg_level, object_intg_level):
+        return True
+    elif not Biba.star_property(subject_intg_level, object_intg_level):
+        return True
+    return False
+
+    
+    

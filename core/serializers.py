@@ -1,7 +1,7 @@
 import logging
 from rest_framework import serializers
 from django.utils.translation import ugettext_lazy as _
-from core.models import Account, File
+from core.models import Account, File, AccessControl
 from core.utils.CryptographyModule import CryptoCipher
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed
@@ -75,3 +75,11 @@ class FileUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = File
         fields = ['file_name', 'owner', 'confidentiality_label', 'integrity_label']
+
+
+class ChangeAccessControlSerializer(serializers.ModelSerializer):
+    obj = serializers.PrimaryKeyRelatedField(source='obj.file_name', read_only=True)
+    subject = serializers.PrimaryKeyRelatedField(source='subject.username', read_only=True)
+    class Meta:
+        model = AccessControl
+        fields = ['subject', 'obj', 'access']

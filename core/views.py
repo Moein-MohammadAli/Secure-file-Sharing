@@ -4,7 +4,7 @@ import os
 
 from core.models import Account, File, AccessControl
 from core.serializers import UserSerializer, AuthTokenSerializer, FileSerializer
-from core.serializers import FileUploadSerializer
+from core.serializers import FileUploadSerializer, ChangeAccessControlSerializer
 from rest_framework import filters
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import SessionAuthentication
@@ -28,7 +28,6 @@ from core.utils.general import *
 
 logger = logging.getLogger(__name__)
 
-MAX_FILE_SIZE = 10**6
 
 class RegisterView(viewsets.GenericViewSet,
                    mixins.CreateModelMixin):
@@ -145,9 +144,13 @@ class UploadView(viewsets.GenericViewSet,
         data["owner"] = Account.objects.get(id=int(request.user.id))
         data["confidentiality_label"] = int(data["confidentiality_label"])
         data["integrity_label"] = int(data["integrity_label"])
+        subj_conf = Account.objects.get(id=request.user.id).confidentiality_label
+        subj_intg = Account.objects.get(id=request.user.id).integrity_label
+        print(subj_conf, subj_intg, data["confidentiality_label"], data["integrity_label"])
         serializer = FileUploadSerializer(data=data)
-        if (serializer.is_valid() and 
-                len(data['data_file']) <= MAX_FILE_SIZE):
+        if serializer.is_valid() and \
+                len(data['data_file']) <= settings.MAX_FILE_SIZE and \
+                not violate_access(subj_conf, subj_intg, data["confidentiality_label"], data["integrity_label"]):
             serializer.save(file_name=data["file_name"],
                                 file_name_hashed=blake(data["file_name"]),
                                 owner=data["owner"], 
@@ -180,8 +183,8 @@ class ReadContentView(viewsets.GenericViewSet,
             subject_level = Account.objects.get(pk=request.user.id).confidentiality_label
             if ((BLP.s_property(subject_level, queryset.confidentiality_label) and 
                     Biba.s_property(subject_level, queryset.confidentiality_label)) and 
-                    has_access(request.user, queryset, "Get")):
-                if (os.stat("./media/"+blake(data["file_name"])).st_size <= MAX_FILE_SIZE):
+                    has_access(request.user, queryset, "Read")):
+                if (os.stat("./media/"+blake(data["file_name"])).st_size <= settings.MAX_FILE_SIZE):
                     with open("./media/"+blake(data["file_name"]), 'r') as f:
                         content = f.read()
                     return Response({'response': crypto_obj.encrypt_text(content)}, status=status.HTTP_200_OK)
@@ -212,8 +215,8 @@ class WriteContentView(viewsets.GenericViewSet,
             subject_level = Account.objects.get(pk=request.user.id).confidentiality_label
             if ((BLP.star_property(subject_level, queryset.confidentiality_label) and
                     Biba.star_property(subject_level, queryset.confidentiality_label)) and 
-                    has_access(request.user, queryset, "Get")):
-                if (len(data['content']) <= MAX_FILE_SIZE):
+                    has_access(request.user, queryset, "Write")):
+                if (len(data['content']) <= settings.MAX_FILE_SIZE):
                     File.objects.filter(file_name=blake(data["file_name"])).update(updated_at=timezone.now())
                     with open("./media/"+blake(data["file_name"]), 'w') as f:
                         f.write(data['content'])
@@ -244,7 +247,7 @@ class GetFileView(viewsets.GenericViewSet,
         try:
             queryset = File.objects.get(file_name_hashed=blake(data["file_name"]))
             if request.user.id == queryset.owner.id or has_access(request.user, queryset, "Get"):
-                if (os.stat("./media/"+blake(data["file_name"])).st_size <= MAX_FILE_SIZE):
+                if (os.stat("./media/"+blake(data["file_name"])).st_size <= settings.MAX_FILE_SIZE):
                     File.objects.filter(file_name_hashed=blake(data["file_name"])).delete()
                     rsp = {
                         "data_file": open("./media/"+blake(data["file_name"]), 'r').read(),
@@ -260,4 +263,36 @@ class GetFileView(viewsets.GenericViewSet,
         except File.DoesNotExist as e:
             print(e)
             return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-     
+
+
+class ChangeAccessView(viewsets.GenericViewSet,
+                       mixins.ListModelMixin):
+    queryset = AccessControl.objects.all()
+    serializer_class = ChangeAccessControlSerializer
+    authentication_classes = [ExpireTokenAuthentication]
+    permission_classes = [BasePermission, IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        crypto_obj = get_data(request)
+        plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
+        data = json.loads(plain_text)
+        try:
+            record = {
+                "subject": Account.objects.get(username=data["subject"]),
+                "obj": File.objects.get(file_name_hashed=blake(data["obj"])),
+                "access": int(data["access"])
+            }
+            owner_id = File.objects.get(file_name_hashed=blake(data["obj"])).owner.id
+            serializer = ChangeAccessControlSerializer(data=record)
+            if serializer.is_valid() and \
+                    request.user.id == owner_id:
+                serializer.save(subject=record['subject'],
+                                obj=record['obj'],
+                                access=record['access'])
+                return Response({'response': crypto_obj.encrypt_text("Access assigned successfully")}, status=status.HTTP_200_OK)
+            else:
+                return Response({'response': crypto_obj.encrypt_text("Access assigned failed")}, status=status.HTTP_403_FORBIDDEN)
+        except File.DoesNotExist as e:
+            print(e)
+            return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
