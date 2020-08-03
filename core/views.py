@@ -19,7 +19,7 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 from django.conf import settings
 
 from core.utils.CryptographyModule import get_data
-from core.utils.general import blake, Biba, BLP, has_access
+from core.utils.general import *
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,6 @@ class UploadView(viewsets.GenericViewSet,
         data["integrity_label"] = int(data["integrity_label"])
         subj_conf = Account.objects.get(id=request.user.id).confidentiality_label
         subj_intg = Account.objects.get(id=request.user.id).integrity_label
-        print(subj_conf, subj_intg, data["confidentiality_label"], data["integrity_label"])
         serializer = FileUploadSerializer(data=data)
         if serializer.is_valid() and \
                 len(data['data_file']) <= MAX_FILE_SIZE and \
@@ -155,8 +154,8 @@ class UploadView(viewsets.GenericViewSet,
                             integrity_label=data['integrity_label'])
             with open("./media/"+blake(data["file_name"]), 'w') as f:
                 f.write(data["data_file"])
-            obj = File.objects.get(file_name_hashed=blake(data["file_name"]))
-            AccessControl.objects.create(subject=data["owner"], obj=obj, access=7).save()
+            obj = File.objects.get(file_name_hashed=blake(data["file_name"]))   
+            AccessControl.objects.create(subject=data["owner"], obj=obj, access=4).save()
             return Response(status=status.HTTP_201_CREATED)
         else:
             if not len(data['data_file']) <= MAX_FILE_SIZE:

@@ -1,2 +1,4 @@
 [2020-07-31 08:10:01] ERROR    [views:list:111]: errrror
 [2020-07-31 08:20:48] ERROR    [views:list:111]: errrror
+[2020-08-03 18:39:10] CRITICAL [views:list:199]: {'user': 'mohammadali', 'blp_access': True, 'biba_access': True, 'dac_access': False}
+[2020-08-03 18:40:40] CRITICAL [views:list:242]: {'user': 'mohammadali', 'blp_access': True, 'biba_access': True, 'dac_access': False}
