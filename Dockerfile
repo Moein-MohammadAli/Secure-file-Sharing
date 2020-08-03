@@ -12,6 +12,7 @@ RUN pip3 install -r requirements.txt
 ADD core/ /var/www/src/core/
 ADD backend/ /var/www/src/backend/
 COPY manage.py /var/www/src/
+COPY uwsgi.ini /var/www/
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
