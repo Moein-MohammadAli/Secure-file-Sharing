@@ -53,7 +53,7 @@ DEFAULT_TOKEN_EXPIRE = {
 # You may want to uncomment mail handler in production!
 # you should get the logger like this whenever you need it: logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG')
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -87,7 +87,7 @@ LOGGING = {
     },
     'loggers': {
         'core': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'file', 'sentry'],
             'propagate': True,
             'level': LOG_LEVEL,
         }
@@ -114,3 +114,5 @@ MAX_FILE_SIZE = 10**6
 
 MAX_TRY = 9
 MAX_TIME_TRY = 5 * 60
+
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']

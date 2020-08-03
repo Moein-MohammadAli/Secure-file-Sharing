@@ -77,11 +77,17 @@ class AuthTokenSerializer(serializers.Serializer):
 
                 usr = Account.objects.filter(username=username).first()
                 if usr:
-                    if usr.number_try >= MAX_TRY and Token.created >= timezone.now() - timedelta(seconds=MAX_TIME_TRY):
+                    tk = Token.objects.filter(user__username=username).first()
+                    if tk and usr.number_try >= MAX_TRY and tk.last_use > timezone.now() - timedelta(seconds=MAX_TIME_TRY):
+                        logger.critical("User {} try to login with incorrect password number try:{}".format(username, usr.number_try))
+                        usr.number_try = 0
+                        usr.save()
+                    elif usr.number_try >= MAX_TRY:
                         logger.critical("User {} try to login with incorrect password number try:{}".format(username, usr.number_try))
                         usr.number_try = 0
                         usr.save()
                     else:
+                        logger.info("User {} try to login with incorrect password.".format(username))
                         usr.number_try = usr.number_try + 1
                         usr.save()
                 else:
