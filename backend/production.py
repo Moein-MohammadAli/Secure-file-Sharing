@@ -109,3 +109,4 @@ sentry_sdk.init(
 RAVEN_CONFIG = {
     'dsn': 'https://ce6d39619ff24a2f9b18f66846360de6@o428081.ingest.sentry.io/5373053',
 }
+MAX_FILE_SIZE = 10**6
