@@ -190,7 +190,8 @@ class ReadContentView(viewsets.GenericViewSet,
                         content = f.read()
                     return Response({'response': crypto_obj.encrypt_text(content)}, status=status.HTTP_200_OK)
                 else:
-                    print("Requested File is not valid due to maximum file limit size")
+                    logger.debug("Requested File is not valid due to maximum file limit size user {}".format(
+                        request.user.username))
             else:
                 logger.critical({
                     "user": str(request.user.username),
