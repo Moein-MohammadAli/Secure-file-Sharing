@@ -76,7 +76,7 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, '.important.log')
         },
         'sentry': {
-            'level': 'ERROR',
+            'level': 'CRITICAL',
             'class': 'raven.contrib.django.handlers.SentryHandler',
         },
         # 'mail': {

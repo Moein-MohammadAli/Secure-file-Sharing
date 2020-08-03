@@ -35,11 +35,11 @@ class RegisterView(viewsets.GenericViewSet,
         plain_text = crypto_obj.decrypt_text(request.data['data']).replace('\'', '\"')
         data = json.loads(plain_text)
         data = data if isinstance(data, dict) else {}
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        password = data.pop('password')
         try:
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+            password = data.pop('password')
             user = Account(**data)
             user.set_password(password)
             user.save()
@@ -56,6 +56,13 @@ class RegisterView(viewsets.GenericViewSet,
                 }
             ))
             return Response({"response": response}, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            response = crypto_obj.encrypt_text("{}".format(
+                {
+                    'response': e
+                }
+            ))
+            return Response({'response': response}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginView(viewsets.GenericViewSet,

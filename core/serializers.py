@@ -33,12 +33,16 @@ class UserSerializer(serializers.Serializer):
         pass
 
     def validate_confidentiality_label(self, value):
-        if not 0 < value < 5:
-            raise serializers.ValidationError("confidentiality_label is invalid.")
+        if value not in [1, 2, 3, 4]:
+            raise serializers.ValidationError({'response': 'confidentiality_label is invalid.'})
+        else:
+            return value
 
     def validate_integrity_label(self, value):
-        if not 0 < value < 5:
-            raise serializers.ValidationError("integrity_label is invalid.")
+        if value not in [1, 2, 3, 4]:
+            raise serializers.ValidationError({'response': 'integrity_label is invalid.'})
+        else:
+            return value
 
     class Meta:
         fields = ['username', 'password', 'confidentiality_label', 'integrity_label']
