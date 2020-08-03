@@ -77,6 +77,7 @@ LOGGING = {
         },
         'sentry': {
             'level': 'ERROR',
+            'level': 'CRITICAL',
             'class': 'raven.contrib.django.handlers.SentryHandler',
         },
         # 'mail': {
@@ -112,5 +113,3 @@ RAVEN_CONFIG = {
 
 MAX_FILE_SIZE = 10**6
 
-MAX_TRY = 9
-MAX_TIME_TRY = 5 * 60
