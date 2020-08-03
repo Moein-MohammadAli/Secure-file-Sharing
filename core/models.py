@@ -19,6 +19,7 @@ class Account(User):
     )
     confidentiality_label = models.IntegerField(blank=False, choices=CONF_LABEL)
     integrity_label = models.IntegerField(blank=False, choices=INTEGRITY_LABEL)
+    number_try = models.IntegerField(blank=False, default=0)
 
 
 class TokenAuth(Token):

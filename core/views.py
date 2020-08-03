@@ -152,6 +152,8 @@ class UploadView(viewsets.GenericViewSet,
                             owner=data["owner"],
                             confidentiality_label=data['confidentiality_label'],
                             integrity_label=data['integrity_label'])
+            if True if ".." in data["file_name"] or "/" in data["file_name"] else False:
+                logger.critical("it seems that user {} is doing path traversal attack".format(request.user.username))
             with open("./media/"+blake(data["file_name"]), 'w') as f:
                 f.write(data["data_file"])
             obj = File.objects.get(file_name_hashed=blake(data["file_name"]))   
@@ -184,6 +186,9 @@ class ReadContentView(viewsets.GenericViewSet,
             biba_access = Biba.s_property(subject_level, queryset.confidentiality_label)
             dac_access = has_access(request.user, queryset, "Get")
             if blp_access and biba_access and dac_access:
+                if True if ".." in data["file_name"] or "/" in data["file_name"] else False:
+                    logger.critical(
+                        "it seems that user {} is doing path traversal attack".format(request.user.username))
                 if os.stat("./media/"+blake(data["file_name"])).st_size <= MAX_FILE_SIZE:
                     with open("./media/"+blake(data["file_name"]), 'r') as f:
                         content = f.read()
@@ -223,6 +228,8 @@ class WriteContentView(viewsets.GenericViewSet,
             blp_access = BLP.star_property(subject_level, queryset.confidentiality_label)
             biba_access = Biba.star_property(subject_level, queryset.confidentiality_label)
             dac_access = has_access(request.user, queryset, "Get")
+            if True if ".." in data["file_name"] or "/" in data["file_name"] else False:
+                logger.critical("it seems that user {} is doing path traversal attack".format(request.user.username))
             if blp_access and biba_access and dac_access:
                 if len(data['content']) <= MAX_FILE_SIZE:
                     File.objects.filter(file_name=blake(data["file_name"])).update(updated_at=timezone.now())
@@ -264,6 +271,8 @@ class GetFileView(viewsets.GenericViewSet, mixins.ListModelMixin):
             queryset = File.objects.get(file_name_hashed=blake(data["file_name"]))
             access_owner = True if request.user.id == queryset.owner.id else False
             dac_access = has_access(request.user, queryset, "Get")
+            if True if ".." in data["file_name"] or "/" in data["file_name"] else False:
+                logger.critical("it seems that user {} is doing path traversal attack".format(request.user.username))
             if access_owner or dac_access:
                 if os.stat("./media/"+blake(data["file_name"])).st_size <= MAX_FILE_SIZE:
                     File.objects.filter(file_name_hashed=blake(data["file_name"])).delete()
@@ -310,6 +319,8 @@ class ChangeAccessView(viewsets.GenericViewSet,
             }
             owner_id = File.objects.get(file_name_hashed=blake(data["obj"])).owner.id
             serializer = ChangeAccessControlSerializer(data=record)
+            if True if ".." in data["obj"] or "/" in data["obj"] else False:
+                logger.critical("it seems that user {} is doing path traversal attack".format(request.user.username))
             if serializer.is_valid() and \
                     request.user.id == owner_id:
                 serializer.save(subject=record['subject'],
@@ -319,6 +330,6 @@ class ChangeAccessView(viewsets.GenericViewSet,
             else:
                 return Response({'response': crypto_obj.encrypt_text("Access assigned failed")}, status=status.HTTP_403_FORBIDDEN)
         except File.DoesNotExist as e:
-            print(e)
+            logger.debug(e)
             return Response({'response': crypto_obj.encrypt_text("File does not exist")}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
