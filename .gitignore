@@ -6,5 +6,5 @@
 .venv/*
 .env/*
 static/*
-.important.log
+*important.log
 media/*

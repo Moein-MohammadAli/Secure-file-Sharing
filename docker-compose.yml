@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  backend:
+    image: backend
+    restart: always
+    command: bash -c "python3 manage.py migrate && uwsgi --ini /var/www/uwsgi.ini"
+    volumes:
+      - ./db.sqlite3:/var/www/src/db.sqlite3
+    expose:
+      - 8000
+    networks:
+      - fundemental
+  backend-nginx:
+    image: nginxt
+    restart: always
+    expose:
+      - 8000
+    ports:
+      - 80:80
+    volumes:
+      - ./.static-content/media:/media
+    depends_on:
+      - backend
+    networks:
+      - fundemental
+networks:
+  fundemental:
+    driver: bridge
+volumes:
+  db_data:

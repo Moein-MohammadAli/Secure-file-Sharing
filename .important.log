@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 [2020-07-31 08:10:01] ERROR    [views:list:111]: errrror
 [2020-07-31 08:20:48] ERROR    [views:list:111]: errrror
 [2020-08-03 18:39:10] CRITICAL [views:list:199]: {'user': 'mohammadali', 'blp_access': True, 'biba_access': True, 'dac_access': False}
 [2020-08-03 18:40:40] CRITICAL [views:list:242]: {'user': 'mohammadali', 'blp_access': True, 'biba_access': True, 'dac_access': False}
 [2020-08-03 19:46:22] CRITICAL [views:put:156]: it seems that user mohammadali is doing path traversal attack
 [2020-08-03 19:53:13] CRITICAL [views:put:156]: it seems that user mohammadali is doing path traversal attack
+=======
+>>>>>>> 83926d05a32fb7db6e7de85053dcff9655589c1b
