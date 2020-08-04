@@ -76,7 +76,6 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, '.important.log')
         },
         'sentry': {
-            'level': 'ERROR',
             'level': 'CRITICAL',
             'class': 'raven.contrib.django.handlers.SentryHandler',
         },
@@ -113,3 +112,6 @@ RAVEN_CONFIG = {
 
 MAX_FILE_SIZE = 10**6
 
+MAX_TRY = 3
+
+MAX_TIME_TRY = 10 * 60

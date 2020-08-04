@@ -33,12 +33,16 @@ class UserSerializer(serializers.Serializer):
         pass
 
     def validate_confidentiality_label(self, value):
-        if not 0 < value < 5:
-            raise serializers.ValidationError("confidentiality_label is invalid.")
+        if value not in [1, 2, 3, 4]:
+            raise serializers.ValidationError({'response': 'confidentiality_label is invalid.'})
+        else:
+            return value
 
     def validate_integrity_label(self, value):
-        if not 0 < value < 5:
-            raise serializers.ValidationError("integrity_label is invalid.")
+        if value not in [1, 2, 3, 4]:
+            raise serializers.ValidationError({'response': 'integrity_label is invalid.'})
+        else:
+            return value
 
     class Meta:
         fields = ['username', 'password', 'confidentiality_label', 'integrity_label']
@@ -73,11 +77,13 @@ class AuthTokenSerializer(serializers.Serializer):
 
                 usr = Account.objects.filter(username=username).first()
                 if usr:
-                    if usr.number_try >= MAX_TRY and Token.created >= timezone.now() - timedelta(seconds=MAX_TIME_TRY):
+                    print(Token.created.timestamp())
+                    if usr.number_try >= MAX_TRY and Token.created > timezone.now() - timedelta(seconds=MAX_TIME_TRY):
                         logger.critical("User {} try to login with incorrect password number try:{}".format(username, usr.number_try))
                         usr.number_try = 0
                         usr.save()
                     else:
+                        print("hey there")
                         usr.number_try = usr.number_try + 1
                         usr.save()
                 else:
