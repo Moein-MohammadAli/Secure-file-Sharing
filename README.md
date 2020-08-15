@@ -92,7 +92,7 @@ We have three types of access:
   * Read
     user can read content of a file
   * Get
-    user can download a file from server and remove it. *This access is highest possible access in this system"
+    user can download a file from server and remove it. *This access allows highest possible access in this system*
 
 * OS command injection and Path traversal
 These two threats are handled by using hash of the file name instead of using file name given by user directly.
