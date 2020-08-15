@@ -26,11 +26,14 @@ python manage.py runserver
 
 ***\*** Note that we need to have python3.7 installed before we try for creating virtual environment*
 
-After running above commands, server is running. But we can use **docker**, too.
+After running above commands, server is running. But we can use **docker**, too. just replace container_name wit 
 ```
 docker build -t nginxt .
+
 docker-compose logs -f
+
 ```
+
 ## APIs
 
 * register/
